@@ -1,7 +1,9 @@
 import * as React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
+  Avatar,
   Button,
+  Flex,
   Masthead,
   MastheadBrand,
   MastheadLogo,
@@ -18,23 +20,65 @@ import {
 } from '@patternfly/react-core';
 import { IAppRoute, IAppRouteGroup, routes } from '@app/routes';
 import { BarsIcon } from '@patternfly/react-icons';
+import { UserActionsDropdown } from 'src/components/UserActionsDropdown';
 
 interface IAppLayout {
   children: React.ReactNode;
 }
 
 const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const SIDEBAR_STORAGE_KEY = 'sidebar-open';
+  const DESKTOP_BREAKPOINT = 1200;
+
+  const getStoredSidebarState = (): boolean | null => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    return stored !== null ? stored === 'true' : null;
+  };
+
+  const [sidebarOpen, setSidebarOpen] = React.useState(() => {
+    if (typeof window === 'undefined') return true;
+    const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
+    if (isDesktop) {
+      // Su desktop: usa il valore salvato, default true
+      const stored = getStoredSidebarState();
+      return stored !== null ? stored : true;
+    }
+    // Su mobile/tablet: sempre chiusa
+    return false;
+  });
+
+  // Salva lo stato in localStorage solo su desktop
+  const handleSidebarToggle = () => {
+    const newState = !sidebarOpen;
+    setSidebarOpen(newState);
+    if (window.innerWidth >= DESKTOP_BREAKPOINT) {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(newState));
+    }
+  };
+
+  // Osserva i cambiamenti di dimensione della finestra
+  React.useEffect(() => {
+    const handleResize = () => {
+      const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
+      if (isDesktop) {
+        // Su desktop: ripristina lo stato salvato
+        const stored = getStoredSidebarState();
+        setSidebarOpen(stored !== null ? stored : true);
+      } else {
+        // Su mobile/tablet: sempre chiusa
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const masthead = (
     <Masthead>
       <MastheadMain>
         <MastheadToggle>
-          <Button
-            icon={<BarsIcon />}
-            variant="plain"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label="Global navigation"
-          />
+          <Button icon={<BarsIcon />} variant="plain" onClick={handleSidebarToggle} aria-label="Global navigation" />
         </MastheadToggle>
         <MastheadBrand data-codemods>
           <MastheadLogo data-codemods>
@@ -83,6 +127,18 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
           </MastheadLogo>
         </MastheadBrand>
       </MastheadMain>
+      <Flex justifyContent={{ default: 'justifyContentFlexEnd' }} alignItems={{ default: 'alignItemsCenter' }}>
+        <div>
+          <div>
+            <b>User Example</b>
+          </div>
+          <div>
+            <small>user@example.com</small>
+          </div>
+        </div>
+        <Avatar src={'https://via.placeholder.com/150'} alt="avatar" />
+        <UserActionsDropdown />
+      </Flex>
     </Masthead>
   );
 
@@ -90,11 +146,7 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
 
   const renderNavItem = (route: IAppRoute, index: number) => (
     <NavItem key={`${route.label}-${index}`} id={`${route.label}-${index}`} isActive={route.path === location.pathname}>
-      <NavLink
-        to={route.path}
-      >
-        {route.label}
-      </NavLink>
+      <NavLink to={route.path}>{route.label}</NavLink>
     </NavItem>
   );
 
