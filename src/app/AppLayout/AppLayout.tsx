@@ -2,7 +2,6 @@ import * as React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Avatar,
-  Button,
   Flex,
   Masthead,
   MastheadBrand,
@@ -16,11 +15,12 @@ import {
   Page,
   PageSidebar,
   PageSidebarBody,
+  PageToggleButton,
   SkipToContent,
 } from '@patternfly/react-core';
 import { IAppRoute, IAppRouteGroup, routes } from '@app/routes';
 import { BarsIcon } from '@patternfly/react-icons';
-import { UserActionsDropdown } from 'src/components/UserActionsDropdown';
+import { UserActionsDropdown } from '../../components/UserActionsDropdown';
 
 interface IAppLayout {
   children: React.ReactNode;
@@ -28,60 +28,36 @@ interface IAppLayout {
 
 const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   const SIDEBAR_STORAGE_KEY = 'sidebar-open';
-  const DESKTOP_BREAKPOINT = 1200;
 
-  const getStoredSidebarState = (): boolean | null => {
-    if (typeof window === 'undefined') return null;
-    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-    return stored !== null ? stored === 'true' : null;
-  };
-
-  const [sidebarOpen, setSidebarOpen] = React.useState(() => {
+  // Sidebar controllata: stato inizializzato dal valore persistito (default aperta).
+  const [sidebarOpen, setSidebarOpen] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
-    const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
-    if (isDesktop) {
-      // Su desktop: usa il valore salvato, default true
-      const stored = getStoredSidebarState();
-      return stored !== null ? stored : true;
-    }
-    // Su mobile/tablet: sempre chiusa
-    return false;
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) !== 'false';
   });
 
-  // Salva lo stato in localStorage solo su desktop
   const handleSidebarToggle = () => {
-    const newState = !sidebarOpen;
-    setSidebarOpen(newState);
-    if (window.innerWidth >= DESKTOP_BREAKPOINT) {
-      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(newState));
-    }
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
+      return next;
+    });
   };
 
-  // Osserva i cambiamenti di dimensione della finestra
-  React.useEffect(() => {
-    const handleResize = () => {
-      const isDesktop = window.innerWidth >= DESKTOP_BREAKPOINT;
-      if (isDesktop) {
-        // Su desktop: ripristina lo stato salvato
-        const stored = getStoredSidebarState();
-        setSidebarOpen(stored !== null ? stored : true);
-      } else {
-        // Su mobile/tablet: sempre chiusa
-        setSidebarOpen(false);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
   const masthead = (
     <Masthead>
       <MastheadMain>
         <MastheadToggle>
-          <Button icon={<BarsIcon />} variant="plain" onClick={handleSidebarToggle} aria-label="Global navigation" />
+          <PageToggleButton
+            variant="plain"
+            aria-label="Global navigation"
+            isSidebarOpen={sidebarOpen}
+            onSidebarToggle={handleSidebarToggle}
+          >
+            <BarsIcon />
+          </PageToggleButton>
         </MastheadToggle>
-        <MastheadBrand data-codemods>
-          <MastheadLogo data-codemods>
+        <MastheadBrand>
+          <MastheadLogo>
             <svg height="40px" viewBox="0 0 679 158">
               <title>PatternFly logo</title>
               <defs>
@@ -172,7 +148,7 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   );
 
   const Sidebar = (
-    <PageSidebar>
+    <PageSidebar isSidebarOpen={sidebarOpen}>
       <PageSidebarBody>{Navigation}</PageSidebarBody>
     </PageSidebar>
   );
@@ -195,7 +171,7 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     <Page
       mainContainerId={pageId}
       masthead={masthead}
-      sidebar={sidebarOpen && Sidebar}
+      sidebar={Sidebar}
       skipToContent={PageSkipToContent}
     >
       {children}
